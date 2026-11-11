@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>X GAMING TOPUP</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#0b1020;color:#f4f6ff}
+header{padding:24px 16px;text-align:center;background:linear-gradient(120deg,#172554,#581c87)}
+h1{margin:0;color:#ffd166}
+header p{margin:8px 0 0;color:#e5e7eb}
+main{max-width:900px;margin:auto;padding:16px}
+.panel{background:#151d33;border:1px solid #293653;border-radius:14px;padding:16px;margin:14px 0}
+h2{margin-top:0;color:#ffd166;font-size:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:9px}
+.pkg{background:#202b45;border:1px solid #405071;color:white;border-radius:10px;padding:12px;text-align:left;cursor:pointer}
+.pkg strong{display:block;color:#ffd166;margin-top:5px}
+.pkg.active{outline:2px solid #ffd166;background:#35415e}
+label{display:block;margin:12px 0 6px}
+input,select,button{width:100%;padding:12px;border-radius:9px;border:1px solid #52617d;background:#0d1529;color:white;font-size:16px}
+button{background:#e7a928;color:#171717;font-weight:bold;border:0;cursor:pointer;margin-top:12px}
+button:disabled{opacity:.5}
+small,.muted{color:#bdc7dc}
+.ok{color:#75e0a1}
+.err{color:#ff9292}
+.row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}
+a{color:#ffd166}
+.hidden{display:none}
+footer{text-align:center;padding:22px;color:#aab4c8}
+</style>
+</head>
+<body>
+<header>
+<h1>X GAMING TOPUP</h1>
+<p>Free Fire Diamond • Membership • Level Up Pass • Likes</p>
+</header>
+
+<main>
+<div class="panel">
+<h2>১. প্যাকেজ নির্বাচন করুন</h2>
+<div id="packages" class="grid">
+<p>প্যাকেজ লোড হচ্ছে...</p>
+</div>
+</div>
+
+<div class="panel">
+<h2>২. Player তথ্য</h2>
+<label for="uid">Free Fire UID</label>
+<div class="row">
+<input id="uid" inputmode="numeric" placeholder="তোমার Player UID">
+<button id="findBtn" style="width:auto">নাম খুঁজুন</button>
+</div>
+<p id="playerMsg" class="muted">Region: Bangladesh (BD)</p>
+<label>Player Name</label>
+<input id="playerName" readonly placeholder="UID যাচাই হলে নাম দেখাবে">
+</div>
+
+<div class="panel">
+<h2>৩. পেমেন্ট ও অর্ডার</h2>
+<p>bKash / Nagad নম্বর: <strong>01794257475</strong></p>
+<label for="method">পেমেন্ট মাধ্যম</label>
+<select id="method">
+<option>bKash</option>
+<option>Nagad</option>
+</select>
+<label for="sender">যে নম্বর থেকে টাকা পাঠিয়েছ</label>
+<input id="sender" inputmode="numeric" placeholder="01XXXXXXXXX">
+<label for="trx">Transaction ID (TrxID)</label>
+<input id="trx" placeholder="TrxID লিখুন">
+<button id="orderBtn">অর্ডার জমা দিন</button>
+<p id="orderMsg" aria-live="polite"></p>
+<p class="muted">পেমেন্ট পাঠানোর পর সঠিক TrxID দিন। অ্যাডমিন যাচাই না করা পর্যন্ত অর্ডার Pending থাকবে। PIN বা OTP কখনো দেবেন না।</p>
+</div>
+
+<div class="panel">
+<h2>যোগাযোগ</h2>
+<p><a href="https://wa.me/8801615559602" target="_blank" rel="noopener">WhatsApp: 01615559602</a></p>
+<p><a href="https://t.me/mrmansormt" target="_blank" rel="noopener">Telegram: @mrmansormt</a></p>
+</div>
+
+<div class="panel">
+<h2>Admin Panel</h2>
+<p class="muted">শুধু সাইটের মালিকের জন্য।</p>
+<label>Admin Password</label>
+<input id="adminPass" type="password" placeholder="Admin password">
+<button id="adminLogin">Admin Login</button>
+<p id="adminMsg"></p>
+<div id="adminArea" class="hidden">
+<button id="refreshOrders">অর্ডার রিফ্রেশ</button>
+<div id="orders"></div>
+<button id="logout">Logout</button>
+</div>
+</div>
+</main>
+
+<footer>© X GAMING TOPUP</footer>
+
+<script>
+let selected=null, player=null, packages=[];
+const $=id=>document.getElementById(id);
+
+async function api(url,opts={}) {
+ const r=await fetch(url,{
+  ...opts,
+  headers:{'Content-Type':'application/json',...(opts.headers||{})}
+ });
+ const d=await r.json().catch(()=>({error:'Server response বুঝতে সমস্যা হয়েছে'}));
+ if(!r.ok) throw new Error(d.error||'সমস্যা হয়েছে');
+ return d;
+}
+
+function renderPackages(){
+ const groups=[
+  ["💎 Diamond",packages.filter(p=>/Diamonds/.test(p.name))],
+  ["⭐ Membership & Combo",packages.filter(p=>/Membership|Weekly \+/.test(p.name))],
+  ["🚀 Level Up Pass",packages.filter(p=>/Level Up Pass/.test(p.name))],
+  ["❤️ FF ID Like",packages.filter(p=>/Likes/.test(p.name))]
+ ];
+ $("packages").innerHTML=groups.map(([title,items])=>
+ `<section style="grid-column:1/-1">
+ <h3>${title}</h3>
+ <div class="grid">
+ ${items.map(p=>`<button class="pkg" data-name="${p.name.replaceAll('"','&quot;')}">${p.name}<strong>৳${p.price}</strong></button>`).join('')}
+ </div></section>`).join('');
+
+ document.querySelectorAll('.pkg').forEach(b=>b.onclick=()=>{
+  selected=packages.find(p=>p.name===b.dataset.name);
+  document.querySelectorAll('.pkg').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+ });
+}
+
+$("findBtn").onclick=async()=>{
+ const uid=$("uid").value.trim();
+ $("playerMsg").textContent="খোঁজা হচ্ছে...";
+ player=null;
+ $("playerName").value="";
+ try{
+  const d=await api('/api/player?uid='+encodeURIComponent(uid));
+  player=d;
+  $("playerName").value=d.name;
+  $("playerMsg").textContent="নাম পাওয়া গেছে • Region: "+d.region;
+  $("playerMsg").className="ok";
+ }catch(e){
+  $("playerMsg").textContent=e.message;
+  $("playerMsg").className="err";
+ }
+};
+
+$("orderBtn").onclick=async()=>{
+ $("orderMsg").textContent="";
+ if(!selected)return $("orderMsg").textContent="আগে একটি প্যাকেজ নির্বাচন করুন।";
+ if(!player || player.uid!==$("uid").value.trim())
+ return $("orderMsg").textContent="আগে UID দিয়ে Player Name যাচাই করুন।";
+
+ try{
+  const d=await api('/api/orders',{
+   method:'POST',
+   body:JSON.stringify({
+    uid:player.uid,
+    playerName:player.name,
+    packageName:selected.name,
+    paymentMethod:$("method").value,
+    senderNumber:$("sender").value,
+    trxId:$("trx").value
+   })
+  });
+  $("orderMsg").textContent=d.message+" Order ID: "+d.orderId;
+  $("orderMsg").className="ok";
+ }catch(e){
+  $("orderMsg").textContent=e.message;
+  $("orderMsg").className="err";
+ }
+};
+
+$("adminLogin").onclick=async()=>{
+ try{
+  await api('/api/admin/login',{
+   method:'POST',
+   body:JSON.stringify({password:$("adminPass").value})
+  });
+  $("adminArea").classList.remove('hidden');
+  $("adminMsg").textContent="Login সফল";
+  loadOrders();
+ }catch(e){
+  $("adminMsg").textContent=e.message;
+ }
+};
+
+async function loadOrders(){
+ try{
+  const list=await api('/api/admin/orders');
+  $("orders").innerHTML=list.map(o=>`
+  <div class="panel">
+  <b>#${o.id} • ${o.player_name}</b>
+  <p>UID: ${o.uid} | ${o.package_name} | ৳${o.amount}</p>
+  <p>${o.payment_method} • ${o.sender_number} • TrxID: ${o.trx_id}</p>
+  <p>Status: ${o.status} • ${o.created_at}</p>
+  <button onclick="setStatus(${o.id},'approved')">Approve</button>
+  <button onclick="setStatus(${o.id},'rejected')">Reject</button>
+  </div>`).join('')||'কোনো অর্ডার নেই';
+ }catch(e){
+  $("orders").textContent=e.message;
+ }
+}
+
+window.setStatus=async(id,status)=>{
+ try{
+  await api('/api/admin/orders/'+id+'/status',{
+   method:'POST',
+   body:JSON.stringify({status})
+  });
+  loadOrders();
+ }catch(e){
+  alert(e.message);
+ }
+};
+
+$("refreshOrders").onclick=loadOrders;
+
+$("logout").onclick=async()=>{
+ await api('/api/admin/logout',{method:'POST'});
+ $("adminArea").classList.add('hidden');
+};
+
+api('/api/packages')
+.then(d=>{
+ packages=d;
+ renderPackages();
+})
+.catch(e=>$("packages").textContent=e.message);
+</script>
+</body>
+  </html>
